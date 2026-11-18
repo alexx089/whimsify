@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFF9F0;
+    color: #51465A;
+    font-family: 'Quicksand', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom pastel scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FFF9F0;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #DDD5F5;
+    border-radius: 9999px;
+    border: 2px solid #FFF9F0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #C2B3EB;
+  }
+}
+
+/* Scrapbook tape and pin utilities */
+.washi-tape-pink {
+  background-color: rgba(246, 220, 229, 0.85);
+  border-top: 1px dashed rgba(217, 143, 167, 0.6);
+  border-bottom: 1px dashed rgba(217, 143, 167, 0.6);
+}
+
+.washi-tape-yellow {
+  background-color: rgba(255, 240, 184, 0.85);
+  border-top: 1px dashed rgba(229, 205, 107, 0.6);
+  border-bottom: 1px dashed rgba(229, 205, 107, 0.6);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
