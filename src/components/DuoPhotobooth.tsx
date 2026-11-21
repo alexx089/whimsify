@@ -334,7 +334,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] flex flex-col font-sans select-none">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6 select-none">
       {/* Hidden audio element for remote stream call audio */}
       <audio
         ref={(audioEl) => {
@@ -353,34 +353,39 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
         }`}
       />
 
-      {/* Header Bar */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-[#F0E6DD] px-4 py-3 sticky top-0 z-30 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      {/* Sub Header & Room Controls */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#F6DCE5] pb-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => {
               duo.leaveRoom();
               camera.stopCamera();
               onNavigateHome();
             }}
-            className="text-stone-500 hover:text-stone-800 transition-colors p-2 rounded-full hover:bg-stone-100 flex items-center space-x-1"
+            className="text-stone-500 hover:text-stone-800 transition-colors p-2 rounded-full hover:bg-stone-100 flex items-center gap-1"
           >
             <RotateCcw className="w-4 h-4" />
             <span className="text-xs font-hand text-stone-600">Home</span>
           </button>
 
-          <div className="flex items-center space-x-2">
-            <span className="text-lg">👯‍♀️</span>
-            <span className="font-hand font-bold text-stone-800 text-lg tracking-wide">
-              Together Booth ♡
-            </span>
-            <span className="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              2-Player Video Call
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👯‍♀️</span>
+              <span className="font-handwritten text-3xl font-bold text-[#51465A]">
+                Together Booth
+              </span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F6DCE5] text-[#8C4D64] font-bold">
+                Online Call ♡
+              </span>
+            </div>
+            <p className="text-xs text-[#7B6F85] mt-0.5 font-medium">
+              Snap live photos with your friend from anywhere in the world.
+            </p>
           </div>
         </div>
 
-        {/* Room status badge */}
-        <div className="flex items-center space-x-2">
+        {/* Room status badge & Call Actions */}
+        <div className="flex items-center gap-2 flex-wrap">
           {duo.status === 'connected' ? (
             <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-full text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -418,10 +423,10 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
             </button>
           )}
         </div>
-      </header>
+      </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 flex flex-col items-center">
+      {/* Main Duo Area */}
+      <div className="w-full flex flex-col items-center">
         {/* LOBBY: User not yet in call */}
         {duo.status === 'idle' || duo.status === 'creating' || duo.status === 'joining' ? (
           <div className="w-full max-w-xl my-auto py-8">
@@ -736,7 +741,35 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
             </div>
           </div>
         )}
-      </main>
+
+        {/* DISCONNECTED OR ERROR STATE */}
+        {(duo.status === 'error' || duo.status === 'disconnected') && (
+          <div className="w-full max-w-xl mx-auto py-8">
+            <div className="bg-white rounded-3xl p-8 border-2 border-dashed border-rose-200 shadow-xl text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                💔
+              </div>
+              <h2 className="text-2xl font-hand font-bold text-stone-800 mb-2">
+                {duo.status === 'disconnected' ? 'Call Ended' : 'Connection Notice'}
+              </h2>
+              <p className="text-stone-600 text-sm max-w-md mx-auto mb-6">
+                {duo.errorMessage || 'The connection was closed or could not be established.'}
+              </p>
+              <button
+                onClick={() => {
+                  duo.leaveRoom();
+                  camera.stopCamera();
+                  setUserRole('lobby');
+                }}
+                className="px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold text-sm shadow-md transition-all inline-flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Return to Lobby ♡</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
