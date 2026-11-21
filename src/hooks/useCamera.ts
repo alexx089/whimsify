@@ -69,7 +69,13 @@ export function useCamera() {
         let activeStream: MediaStream;
         try {
           const constraints: MediaStreamConstraints = {
-            audio: enableAudio,
+            audio: enableAudio
+              ? {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                }
+              : false,
             video: {
               facingMode: mode,
               width: { ideal: 1280, max: 1920 },

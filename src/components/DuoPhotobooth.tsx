@@ -376,17 +376,17 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     }, 1000);
   };
 
-  // Host: Create Room with chosen capacity
+  // Host: Create Room with chosen capacity (audio + video enabled)
   const handleHostCreateRoom = async () => {
     setUserRole('host');
-    await camera.startCamera('user', false);
+    await camera.startCamera('user', true);
   };
 
-  // Guest: Join Room
+  // Guest: Join Room (audio + video enabled)
   const handleGuestJoinRoom = async () => {
     if (!joinInputCode.trim()) return;
     setUserRole('guest');
-    await camera.startCamera('user', false);
+    await camera.startCamera('user', true);
   };
 
   // When camera stream becomes ready, trigger room creation or join
@@ -442,6 +442,22 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6 select-none">
+      {/* Background audio elements for all remote peers to guarantee audible call voice */}
+      {duo.remotePeers.map((peer) => (
+        <audio
+          key={`audio-${peer.peerId}`}
+          ref={(audioEl) => {
+            if (audioEl && peer.stream && audioEl.srcObject !== peer.stream) {
+              audioEl.srcObject = peer.stream;
+              audioEl.play().catch((e) => {
+                console.warn('Audio play pending user interaction:', e);
+              });
+            }
+          }}
+          autoPlay
+        />
+      ))}
+
       {/* Screen flash effect */}
       <div
         className={`fixed inset-0 bg-white z-50 pointer-events-none transition-opacity duration-300 ${
@@ -746,6 +762,8 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                       ref={(el) => {
                         if (el) {
                           remoteVideosMapRef.current.set(peer.peerId, el);
+                          el.muted = false;
+                          el.volume = 1.0;
                           el.setAttribute('playsinline', 'true');
                           if (peer.stream && el.srcObject !== peer.stream) {
                             el.srcObject = peer.stream;
