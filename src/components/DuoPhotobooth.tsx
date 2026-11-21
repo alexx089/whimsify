@@ -540,16 +540,19 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                 <video
                   ref={(el) => {
                     camera.videoRef.current = el;
-                    if (el && camera.stream && el.srcObject !== camera.stream) {
-                      el.srcObject = camera.stream;
-                      el.setAttribute('playsinline', 'true');
-                      el.play().catch(() => {});
+                    if (el) {
+                      el.muted = true;
+                      if (camera.stream && el.srcObject !== camera.stream) {
+                        el.srcObject = camera.stream;
+                        el.setAttribute('playsinline', 'true');
+                        el.play().catch(() => {});
+                      }
                     }
                   }}
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover ${camera.facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  className={`w-full h-full object-cover ${camera.facingMode === 'user' ? '-scale-x-100' : ''}`}
                 />
                 {!camera.stream && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-400 text-xs">
@@ -581,16 +584,19 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                   <video
                     ref={(el) => {
                       camera.videoRef.current = el;
-                      if (el && camera.stream && el.srcObject !== camera.stream) {
-                        el.srcObject = camera.stream;
-                        el.setAttribute('playsinline', 'true');
-                        el.play().catch(() => {});
+                      if (el) {
+                        el.muted = true;
+                        if (camera.stream && el.srcObject !== camera.stream) {
+                          el.srcObject = camera.stream;
+                          el.setAttribute('playsinline', 'true');
+                          el.play().catch(() => {});
+                        }
                       }
                     }}
                     autoPlay
                     playsInline
                     muted
-                    className={`w-full h-full object-cover ${camera.facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                    className={`w-full h-full object-cover ${camera.facingMode === 'user' ? '-scale-x-100' : ''}`}
                   />
                   {!camera.stream && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-stone-900/90 text-stone-400">
@@ -619,15 +625,17 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                   <video
                     ref={(el) => {
                       duo.remoteVideoRef.current = el;
-                      if (el && duo.remoteStream && el.srcObject !== duo.remoteStream) {
-                        el.srcObject = duo.remoteStream;
+                      if (el) {
                         el.setAttribute('playsinline', 'true');
-                        el.play().catch(() => {});
+                        if (duo.remoteStream && el.srcObject !== duo.remoteStream) {
+                          el.srcObject = duo.remoteStream;
+                          el.play().catch(() => {});
+                        }
                       }
                     }}
                     autoPlay
                     playsInline
-                    className="w-full h-full object-cover scale-x-[-1]"
+                    className="w-full h-full object-cover -scale-x-100"
                   />
                   {!duo.remoteStream && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-stone-900/90">

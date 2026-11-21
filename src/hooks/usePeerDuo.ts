@@ -97,6 +97,16 @@ export function usePeerDuo(onSyncAction?: (action: DuoSyncAction) => void) {
       try {
         const peer = new Peer(chosenRoomId, {
           debug: 1,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+              { urls: 'stun:stun3.l.google.com:19302' },
+              { urls: 'stun:stun4.l.google.com:19302' },
+              { urls: 'stun:stun.cloudflare.com:3478' },
+            ],
+          },
         });
         peerRef.current = peer;
 
@@ -156,6 +166,16 @@ export function usePeerDuo(onSyncAction?: (action: DuoSyncAction) => void) {
       try {
         const peer = new Peer({
           debug: 1,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+              { urls: 'stun:stun3.l.google.com:19302' },
+              { urls: 'stun:stun4.l.google.com:19302' },
+              { urls: 'stun:stun.cloudflare.com:3478' },
+            ],
+          },
         });
         peerRef.current = peer;
 
