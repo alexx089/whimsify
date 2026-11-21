@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavigationTab } from '../types';
-import { Camera, Sparkles, CircleDot, Layers, Info, Volume2, VolumeX, Menu, X, Heart } from 'lucide-react';
+import { Camera, Sparkles, CircleDot, Layers, Info, Volume2, VolumeX, Menu, X, Heart, Users } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 interface NavbarProps {
@@ -26,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navItems: { id: NavigationTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'home', label: 'Home', icon: <Heart className="w-4 h-4 text-[#E89CB5]" /> },
     { id: 'photobooth', label: 'Photobooth', icon: <Camera className="w-4 h-4 text-[#A78BFA]" />, badge: 'Classic' },
+    { id: 'duo', label: 'Duo Call', icon: <Users className="w-4 h-4 text-[#EC4899]" />, badge: 'Online ♡' },
     { id: 'mirror', label: 'Mirror Magic', icon: <CircleDot className="w-4 h-4 text-[#F59E0B]" />, badge: 'Fisheye' },
     { id: 'frames', label: 'Frames', icon: <Layers className="w-4 h-4 text-[#10B981]" /> },
     { id: 'about', label: 'About', icon: <Info className="w-4 h-4 text-[#6366F1]" /> },

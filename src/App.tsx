@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationTab, FrameId, LayoutMode, CapturedPhoto } from './types';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { Photobooth } from './components/Photobooth';
+import { DuoPhotobooth } from './components/DuoPhotobooth';
 import { PhotoEditor } from './components/PhotoEditor';
 import { MirrorMagic } from './components/MirrorMagic';
 import { FramesGallery } from './components/FramesGallery';
@@ -17,6 +18,14 @@ export const App: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // If URL has ?duo=... or ?room=..., auto-switch to Duo photobooth tab
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('duo') || params.get('room')) {
+      setCurrentTab('duo');
+    }
+  }, []);
 
   // Sound toggle
   const handleToggleMute = () => {
@@ -112,6 +121,25 @@ export const App: React.FC = () => {
           )
         )}
 
+        {/* TAB 2.5: TOGETHER BOOTH (2-Player Online Video Call Photobooth) */}
+        {currentTab === 'duo' && (
+          isEditing && capturedPhotos.length > 0 ? (
+            <PhotoEditor
+              photos={capturedPhotos}
+              initialFrameId={selectedFrameId}
+              initialLayout={sessionLayout}
+              onRetake={handleRetakePhotos}
+              onNewSession={handleNewSession}
+            />
+          ) : (
+            <DuoPhotobooth
+              initialFrameId={selectedFrameId}
+              onFinishSession={handleFinishPhotoboothSession}
+              onNavigateHome={() => setCurrentTab('home')}
+            />
+          )
+        )}
+
         {/* TAB 3: CONVEX MIRROR SELFIE (MIRROR MAGIC) */}
         {currentTab === 'mirror' && (
           <MirrorMagic onNavigateHome={() => setCurrentTab('home')} />
@@ -155,6 +183,12 @@ export const App: React.FC = () => {
               className="hover:text-[#51465A] hover:underline"
             >
               Photobooth
+            </button>
+            <button
+              onClick={() => handleSelectTab('duo')}
+              className="hover:text-[#51465A] hover:underline text-pink-600 font-semibold"
+            >
+              Duo Call ♡
             </button>
             <button
               onClick={() => handleSelectTab('mirror')}

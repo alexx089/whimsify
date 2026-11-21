@@ -68,13 +68,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </button>
 
           <button
+            onClick={() => onNavigate('duo')}
+            className="px-7 py-4 rounded-full bg-gradient-to-r from-[#FCE7F3] to-[#F3E8FF] hover:from-[#fbcfe8] hover:to-[#e9d5ff] text-[#831843] font-bold text-base sm:text-lg shadow-sm hover:shadow-soft transition-all duration-300 hover:scale-105 border-2 border-[#F472B6]/40 flex items-center gap-2.5"
+          >
+            <span className="text-xl">👯‍♀️</span>
+            <span>Snap Together (Duo Call)</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold">
+              Live ♡
+            </span>
+          </button>
+
+          <button
             onClick={() => onNavigate('mirror')}
             className="px-7 py-4 rounded-full bg-white/90 hover:bg-white text-[#51465A] font-bold text-base sm:text-lg shadow-sm hover:shadow-soft transition-all duration-300 hover:scale-105 border-2 border-[#DDD5F5] flex items-center gap-2.5"
           >
             <CircleDot className="w-5 h-5 text-[#F59E0B]" />
             <span>Mirror Magic Selfie</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFF0B8] text-[#735F1A] font-bold">
-              New!
+              Fisheye
             </span>
           </button>
         </div>
@@ -431,6 +442,65 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {/* Floating Little Heart Deco */}
                 <div className="absolute -bottom-2 -right-2 text-2xl animate-float-reverse">
                   💖
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* 4.5 DUO PHOTOBOOTH SPOTLIGHT SECTION */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="bg-gradient-to-r from-[#FCE7F3] via-[#F3E8FF] to-[#E0E7FF] p-8 sm:p-12 rounded-3xl border-2 border-pink-200 shadow-soft">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            
+            <div className="lg:col-span-7 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-bold">
+                <span>👯‍♀️ Online 2-Player Call</span>
+                <span>•</span>
+                <span>Real-Time WebRTC</span>
+              </div>
+
+              <h2 className="font-handwritten text-4xl sm:text-5xl font-bold text-[#51465A] leading-tight">
+                Snap Together Across Any Distance ♡
+              </h2>
+
+              <p className="text-sm sm:text-base text-[#7B6F85] leading-relaxed">
+                Missing your bestie, partner, or sibling in another city? Start a live Together Booth video call with crystal-clear audio, countdown together, and capture dual split-screen photobooth strips in real time!
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  onClick={() => onNavigate('duo')}
+                  className="px-8 py-3.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-bold text-base shadow-md hover:shadow-lg transition-all hover:scale-105 flex items-center gap-2 border border-white"
+                >
+                  <span>Start a Duo Call</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-stone-500 font-mono">No sign-up • Instant share link</span>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 flex justify-center">
+              <div className="bg-white p-4 rounded-2xl shadow-lg border-2 border-pink-200 rotate-2 hover:rotate-0 transition-transform">
+                <div className="grid grid-cols-2 gap-2 w-64 aspect-[4/3] rounded-xl overflow-hidden bg-stone-900 p-1 relative">
+                  <div className="bg-pink-100 rounded-lg flex flex-col items-center justify-center p-2 text-center">
+                    <span className="text-2xl">👧🏻</span>
+                    <span className="text-[10px] font-bold text-pink-700 mt-1">You ♡</span>
+                  </div>
+                  <div className="bg-purple-100 rounded-lg flex flex-col items-center justify-center p-2 text-center">
+                    <span className="text-2xl">👱🏼‍♀️</span>
+                    <span className="text-[10px] font-bold text-purple-700 mt-1">Bestie ♡</span>
+                  </div>
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center text-xs font-bold text-pink-500">
+                      ♡
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center mt-3">
+                  <span className="text-xs font-hand text-stone-700 font-bold">Split-Screen Dual Keepsake</span>
                 </div>
               </div>
             </div>

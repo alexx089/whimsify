@@ -1,4 +1,12 @@
-export type NavigationTab = 'home' | 'photobooth' | 'mirror' | 'frames' | 'about';
+export type NavigationTab = 'home' | 'photobooth' | 'duo' | 'mirror' | 'frames' | 'about';
+
+export type DuoSyncAction =
+  | { type: 'START_COUNTDOWN'; seconds: number }
+  | { type: 'PHOTO_CAPTURED'; photoIndex: number }
+  | { type: 'CHANGE_FRAME'; frameId: FrameId }
+  | { type: 'CHANGE_POSES_COUNT'; count: number }
+  | { type: 'FINISH_SESSION' }
+  | { type: 'RETAKE_ALL' };
 
 export type FrameId = 
   | 'classic-white'

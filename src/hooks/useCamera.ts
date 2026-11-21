@@ -13,6 +13,7 @@ export function useCamera() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [hasMultipleCameras, setHasMultipleCameras] = useState<boolean>(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -35,6 +36,7 @@ export function useCamera() {
       });
       streamRef.current = null;
     }
+    setStream(null);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -43,12 +45,13 @@ export function useCamera() {
   }, []);
 
   const startCamera = useCallback(
-    async (mode: 'user' | 'environment' = facingMode) => {
+    async (mode: 'user' | 'environment' = facingMode, enableAudio: boolean = false) => {
       // First stop any existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
+      setStream(null);
 
       setStatus('requesting');
       setErrorMessage(null);
@@ -63,20 +66,39 @@ export function useCamera() {
       }
 
       try {
-        const constraints: MediaStreamConstraints = {
-          audio: false,
-          video: {
-            facingMode: mode,
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
-          },
-        };
+        let activeStream: MediaStream;
+        try {
+          const constraints: MediaStreamConstraints = {
+            audio: enableAudio,
+            video: {
+              facingMode: mode,
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 },
+            },
+          };
+          activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (audioOrVidErr) {
+          // If audio was requested but failed (e.g. mic denied/unavailable), fallback to video only
+          if (enableAudio) {
+            console.warn('Audio capture failed, falling back to video only:', audioOrVidErr);
+            activeStream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                facingMode: mode,
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+              },
+            });
+          } else {
+            throw audioOrVidErr;
+          }
+        }
 
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
+        streamRef.current = activeStream;
+        setStream(activeStream);
 
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+          videoRef.current.srcObject = activeStream;
           videoRef.current.setAttribute('playsinline', 'true');
           // Wait for video to actually start playing
           try {
@@ -147,7 +169,7 @@ export function useCamera() {
     facingMode,
     hasMultipleCameras,
     videoRef,
-    stream: streamRef.current,
+    stream,
     startCamera,
     stopCamera,
     switchCamera,
