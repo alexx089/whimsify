@@ -154,6 +154,17 @@ export function useCamera() {
     await startCamera(nextMode);
   }, [facingMode, startCamera]);
 
+  // Keep videoRef.current in sync with active stream
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      if (videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [stream]);
+
   // Clean up all tracks on unmount
   useEffect(() => {
     return () => {

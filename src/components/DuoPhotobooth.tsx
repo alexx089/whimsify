@@ -91,13 +91,26 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     }
   }, []);
 
-  // Sync remote video stream to remote video element when stream arrives
+  // Sync video streams to video elements whenever elements or streams update
+  useEffect(() => {
+    if (camera.videoRef.current && camera.stream) {
+      if (camera.videoRef.current.srcObject !== camera.stream) {
+        camera.videoRef.current.srcObject = camera.stream;
+      }
+      camera.videoRef.current.setAttribute('playsinline', 'true');
+      camera.videoRef.current.play().catch(() => {});
+    }
+  }, [camera.stream, duo.status]);
+
   useEffect(() => {
     if (duo.remoteVideoRef.current && duo.remoteStream) {
-      duo.remoteVideoRef.current.srcObject = duo.remoteStream;
+      if (duo.remoteVideoRef.current.srcObject !== duo.remoteStream) {
+        duo.remoteVideoRef.current.srcObject = duo.remoteStream;
+      }
+      duo.remoteVideoRef.current.setAttribute('playsinline', 'true');
       duo.remoteVideoRef.current.play().catch(() => {});
     }
-  }, [duo.remoteStream]);
+  }, [duo.remoteStream, duo.status]);
 
   // Clean up camera and duo call on unmount
   useEffect(() => {
@@ -523,14 +536,27 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
               </div>
 
               {/* Live camera preview for host while waiting */}
-              <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-stone-200 aspect-video max-w-xs mx-auto mb-6 bg-stone-100 shadow-inner">
+              <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-stone-200 aspect-video max-w-xs mx-auto mb-6 bg-stone-100 shadow-inner flex items-center justify-center">
                 <video
-                  ref={camera.videoRef}
+                  ref={(el) => {
+                    camera.videoRef.current = el;
+                    if (el && camera.stream && el.srcObject !== camera.stream) {
+                      el.srcObject = camera.stream;
+                      el.setAttribute('playsinline', 'true');
+                      el.play().catch(() => {});
+                    }
+                  }}
                   autoPlay
                   playsInline
                   muted
                   className={`w-full h-full object-cover ${camera.facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
                 />
+                {!camera.stream && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-400 text-xs">
+                    <Camera className="w-4 h-4 mr-1 animate-pulse" />
+                    <span>Camera loading...</span>
+                  </div>
+                )}
                 <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
                   Your Camera Preview
                 </span>
@@ -553,12 +579,25 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                 {/* Local Video Panel */}
                 <div className="relative w-full h-full overflow-hidden bg-stone-900 flex items-center justify-center">
                   <video
-                    ref={camera.videoRef}
+                    ref={(el) => {
+                      camera.videoRef.current = el;
+                      if (el && camera.stream && el.srcObject !== camera.stream) {
+                        el.srcObject = camera.stream;
+                        el.setAttribute('playsinline', 'true');
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay
                     playsInline
                     muted
                     className={`w-full h-full object-cover ${camera.facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
                   />
+                  {!camera.stream && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-stone-900/90 text-stone-400">
+                      <Camera className="w-8 h-8 text-pink-400 mb-2 animate-bounce" />
+                      <span className="text-xs font-hand text-pink-200">Starting your camera...</span>
+                    </div>
+                  )}
                   <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full flex items-center space-x-1.5 border border-white/20">
                     <span className="w-2 h-2 rounded-full bg-pink-400" />
                     <span className="font-medium">You</span>
@@ -578,11 +617,31 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                 {/* Remote Video Panel */}
                 <div className="relative w-full h-full overflow-hidden bg-stone-900 flex items-center justify-center">
                   <video
-                    ref={duo.remoteVideoRef}
+                    ref={(el) => {
+                      duo.remoteVideoRef.current = el;
+                      if (el && duo.remoteStream && el.srcObject !== duo.remoteStream) {
+                        el.srcObject = duo.remoteStream;
+                        el.setAttribute('playsinline', 'true');
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay
                     playsInline
                     className="w-full h-full object-cover scale-x-[-1]"
                   />
+                  {!duo.remoteStream && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-stone-900/90">
+                      <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center mb-2 animate-pulse">
+                        <Sparkles className="w-5 h-5 text-purple-300" />
+                      </div>
+                      <span className="text-xs font-hand text-purple-200 font-bold mb-0.5">
+                        Connecting to bestie's camera...
+                      </span>
+                      <span className="text-[10px] text-stone-400">
+                        Almost ready to snap together ♡
+                      </span>
+                    </div>
+                  )}
                   <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full flex items-center space-x-1.5 border border-white/20">
                     <span className="w-2 h-2 rounded-full bg-purple-400" />
                     <span className="font-medium">Bestie ♡</span>
