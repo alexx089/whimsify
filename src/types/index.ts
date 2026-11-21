@@ -5,8 +5,17 @@ export type DuoSyncAction =
   | { type: 'PHOTO_CAPTURED'; photoIndex: number }
   | { type: 'CHANGE_FRAME'; frameId: FrameId }
   | { type: 'CHANGE_POSES_COUNT'; count: number }
+  | { type: 'CHANGE_MAX_PEOPLE'; maxPeople: number }
   | { type: 'FINISH_SESSION' }
-  | { type: 'RETAKE_ALL' };
+  | { type: 'RETAKE_ALL' }
+  | { type: 'ROSTER_UPDATE'; peerIds: string[] };
+
+export interface GroupPeer {
+  peerId: string;
+  stream?: MediaStream;
+  name: string;
+  isHost?: boolean;
+}
 
 export type FrameId = 
   | 'classic-white'

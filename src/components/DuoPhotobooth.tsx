@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCamera } from '../hooks/useCamera';
 import { usePeerDuo, DuoConnectionStatus } from '../hooks/usePeerDuo';
-import { FrameId, LayoutMode, CapturedPhoto, DuoSyncAction } from '../types';
+import { FrameId, LayoutMode, CapturedPhoto, DuoSyncAction, GroupPeer } from '../types';
 import { FRAMES } from '../utils/framesAndStickers';
 import { sounds } from '../utils/audio';
 import {
@@ -15,14 +15,12 @@ import {
   RotateCcw,
   Sparkles,
   ArrowRight,
-  PhoneOff,
   RefreshCw,
   AlertCircle,
   Timer,
   Heart,
   Smile,
-  Video,
-  ExternalLink,
+  UserPlus,
 } from 'lucide-react';
 
 interface DuoPhotoboothProps {
@@ -46,11 +44,13 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
   const [isFlashing, setIsFlashing] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [joinInputCode, setJoinInputCode] = useState('');
+  const [selectedCapacity, setSelectedCapacity] = useState<number>(5); // Default 5 people
   const [userRole, setUserRole] = useState<'lobby' | 'host' | 'guest'>('lobby');
 
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const remoteVideosMapRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
-  // Sync action handler received over WebRTC data channel
+  // Handle sync actions received across WebRTC mesh
   const handleSyncAction = useCallback(
     (action: DuoSyncAction) => {
       switch (action.type) {
@@ -66,8 +66,10 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
           setTargetPhotoCount(action.count);
           setCapturedPhotos([]);
           break;
+        case 'CHANGE_MAX_PEOPLE':
+          setSelectedCapacity(action.maxPeople);
+          break;
         case 'FINISH_SESSION':
-          // Finish session with current photos
           onFinishSession(capturedPhotos, selectedFrameId, layoutMode);
           break;
         case 'RETAKE_ALL':
@@ -91,26 +93,29 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     }
   }, []);
 
-  // Sync video streams to video elements whenever elements or streams update
+  // Sync local camera stream
   useEffect(() => {
     if (camera.videoRef.current && camera.stream) {
       if (camera.videoRef.current.srcObject !== camera.stream) {
         camera.videoRef.current.srcObject = camera.stream;
       }
+      camera.videoRef.current.muted = true;
       camera.videoRef.current.setAttribute('playsinline', 'true');
       camera.videoRef.current.play().catch(() => {});
     }
   }, [camera.stream, duo.status]);
 
+  // Sync all remote peers' video streams
   useEffect(() => {
-    if (duo.remoteVideoRef.current && duo.remoteStream) {
-      if (duo.remoteVideoRef.current.srcObject !== duo.remoteStream) {
-        duo.remoteVideoRef.current.srcObject = duo.remoteStream;
+    duo.remotePeers.forEach((peer) => {
+      const videoEl = remoteVideosMapRef.current.get(peer.peerId);
+      if (videoEl && peer.stream && videoEl.srcObject !== peer.stream) {
+        videoEl.srcObject = peer.stream;
+        videoEl.setAttribute('playsinline', 'true');
+        videoEl.play().catch(() => {});
       }
-      duo.remoteVideoRef.current.setAttribute('playsinline', 'true');
-      duo.remoteVideoRef.current.play().catch(() => {});
-    }
-  }, [duo.remoteStream, duo.status]);
+    });
+  }, [duo.remotePeers]);
 
   // Clean up camera and duo call on unmount
   useEffect(() => {
@@ -164,11 +169,25 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     ctx.restore();
   };
 
-  // Capture both local video and remote video side-by-side into a single photo
-  const takeDualSnapshot = (): string | null => {
-    const localVideo = camera.videoRef.current;
-    const remoteVideo = duo.remoteVideoRef.current;
+  // Helper: Draw cute heart badge between grid panels
+  const drawHeartBadge = (ctx: CanvasRenderingContext2D, cx: number, cy: number) => {
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+    ctx.fill();
 
+    ctx.fillStyle = '#EC4899';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('♡', cx, cy);
+    ctx.restore();
+  };
+
+  // Composite all connected participants (1 to 5 people) into a single photo
+  const takeGroupSnapshot = (): string | null => {
+    const localVideo = camera.videoRef.current;
     if (!localVideo) return null;
 
     let canvas = captureCanvasRef.current;
@@ -177,7 +196,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
       captureCanvasRef.current = canvas;
     }
 
-    // High resolution duo photo (1280 x 960 -> 4:3 aspect ratio)
+    // High resolution standard 4:3 canvas (1280 x 960)
     const W = 1280;
     const H = 960;
     canvas.width = W;
@@ -189,61 +208,130 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, W, H);
 
-    const halfW = W / 2;
-
-    // Host on Left half, Guest on Right half
-    if (duo.isHost) {
-      // Local is Host (Left), Remote is Guest (Right)
-      drawVideoCover(ctx, localVideo, 0, 0, halfW, H, camera.facingMode === 'user');
-      if (remoteVideo && remoteVideo.readyState >= remoteVideo.HAVE_CURRENT_DATA) {
-        drawVideoCover(ctx, remoteVideo, halfW, 0, halfW, H, true);
-      } else {
-        ctx.fillStyle = '#FCE7F3';
-        ctx.fillRect(halfW, 0, halfW, H);
+    // Collect all active video elements
+    const remoteVideos: HTMLVideoElement[] = [];
+    duo.remotePeers.forEach((p) => {
+      const v = remoteVideosMapRef.current.get(p.peerId);
+      if (v && v.readyState >= v.HAVE_CURRENT_DATA) {
+        remoteVideos.push(v);
       }
+    });
+
+    const allVideos: { video: HTMLVideoElement; mirror: boolean }[] = [
+      { video: localVideo, mirror: camera.facingMode === 'user' },
+      ...remoteVideos.map((v) => ({ video: v, mirror: true })),
+    ];
+
+    const N = allVideos.length;
+
+    if (N === 1) {
+      // Single person
+      drawVideoCover(ctx, allVideos[0].video, 0, 0, W, H, allVideos[0].mirror);
+    } else if (N === 2) {
+      // 2 People: Split-screen (Left & Right)
+      const halfW = W / 2;
+      drawVideoCover(ctx, allVideos[0].video, 0, 0, halfW, H, allVideos[0].mirror);
+      drawVideoCover(ctx, allVideos[1].video, halfW, 0, halfW, H, allVideos[1].mirror);
+
+      // Divider line
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(halfW, 0);
+      ctx.lineTo(halfW, H);
+      ctx.stroke();
+
+      drawHeartBadge(ctx, halfW, H / 2);
+    } else if (N === 3) {
+      // 3 People: 3 vertical strips side-by-side
+      const colW = W / 3;
+      for (let i = 0; i < 3; i++) {
+        drawVideoCover(ctx, allVideos[i].video, i * colW, 0, colW, H, allVideos[i].mirror);
+      }
+
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 6;
+      for (let i = 1; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * colW, 0);
+        ctx.lineTo(i * colW, H);
+        ctx.stroke();
+        drawHeartBadge(ctx, i * colW, H / 2);
+      }
+    } else if (N === 4) {
+      // 4 People: 2x2 Grid
+      const halfW = W / 2;
+      const halfH = H / 2;
+
+      drawVideoCover(ctx, allVideos[0].video, 0, 0, halfW, halfH, allVideos[0].mirror);
+      drawVideoCover(ctx, allVideos[1].video, halfW, 0, halfW, halfH, allVideos[1].mirror);
+      drawVideoCover(ctx, allVideos[2].video, 0, halfH, halfW, halfH, allVideos[2].mirror);
+      drawVideoCover(ctx, allVideos[3].video, halfW, halfH, halfW, halfH, allVideos[3].mirror);
+
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 6;
+      // Vertical divider
+      ctx.beginPath();
+      ctx.moveTo(halfW, 0);
+      ctx.lineTo(halfW, H);
+      ctx.stroke();
+      // Horizontal divider
+      ctx.beginPath();
+      ctx.moveTo(0, halfH);
+      ctx.lineTo(W, halfH);
+      ctx.stroke();
+
+      drawHeartBadge(ctx, halfW, halfH);
     } else {
-      // Remote is Host (Left), Local is Guest (Right)
-      if (remoteVideo && remoteVideo.readyState >= remoteVideo.HAVE_CURRENT_DATA) {
-        drawVideoCover(ctx, remoteVideo, 0, 0, halfW, H, true);
-      } else {
-        ctx.fillStyle = '#FCE7F3';
-        ctx.fillRect(0, 0, halfW, H);
-      }
-      drawVideoCover(ctx, localVideo, halfW, 0, halfW, H, camera.facingMode === 'user');
+      // 5 People: Top row has 3, bottom row has 2
+      const topColW = W / 3;
+      const halfH = H / 2;
+      const botColW = W / 2;
+
+      // Top 3
+      drawVideoCover(ctx, allVideos[0].video, 0, 0, topColW, halfH, allVideos[0].mirror);
+      drawVideoCover(ctx, allVideos[1].video, topColW, 0, topColW, halfH, allVideos[1].mirror);
+      drawVideoCover(ctx, allVideos[2].video, topColW * 2, 0, topColW, halfH, allVideos[2].mirror);
+
+      // Bottom 2
+      drawVideoCover(ctx, allVideos[3].video, 0, halfH, botColW, halfH, allVideos[3].mirror);
+      drawVideoCover(ctx, allVideos[4].video, botColW, halfH, botColW, halfH, allVideos[4].mirror);
+
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 6;
+      // Horizontal divider
+      ctx.beginPath();
+      ctx.moveTo(0, halfH);
+      ctx.lineTo(W, halfH);
+      ctx.stroke();
+
+      // Top vertical dividers
+      ctx.beginPath();
+      ctx.moveTo(topColW, 0);
+      ctx.lineTo(topColW, halfH);
+      ctx.moveTo(topColW * 2, 0);
+      ctx.lineTo(topColW * 2, halfH);
+      ctx.stroke();
+
+      // Bottom vertical divider
+      ctx.beginPath();
+      ctx.moveTo(botColW, halfH);
+      ctx.lineTo(botColW, H);
+      ctx.stroke();
+
+      drawHeartBadge(ctx, W / 2, halfH);
     }
-
-    // Draw aesthetic center divider line
-    ctx.save();
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(halfW, 0);
-    ctx.lineTo(halfW, H);
-    ctx.stroke();
-
-    // Center cute heart icon badge
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(halfW, H / 2, 22, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#EC4899';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('♡', halfW, H / 2);
-    ctx.restore();
 
     return canvas.toDataURL('image/jpeg', 0.95);
   };
 
-  // Perform single capture
+  // Perform single flash & capture
   const executeCapture = () => {
     setIsFlashing(true);
     sounds.playShutter();
     setTimeout(() => setIsFlashing(false), 400);
 
-    const dataUrl = takeDualSnapshot();
+    const dataUrl = takeGroupSnapshot();
     if (!dataUrl) return;
 
     const newPhoto: CapturedPhoto = {
@@ -255,7 +343,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     setCapturedPhotos((prev) => [...prev, newPhoto]);
   };
 
-  // Trigger countdown sequence
+  // Trigger synchronized countdown sequence
   const triggerCountdownSequence = (seconds: number, isInitiator = true) => {
     if (isCountingDown) return;
     setIsCountingDown(true);
@@ -288,29 +376,29 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     }, 1000);
   };
 
-  // Host button click: Start room
+  // Host: Create Room with chosen capacity
   const handleHostCreateRoom = async () => {
     setUserRole('host');
-    await camera.startCamera('user', true);
+    await camera.startCamera('user', false);
   };
 
-  // Guest button click: Join room
+  // Guest: Join Room
   const handleGuestJoinRoom = async () => {
     if (!joinInputCode.trim()) return;
     setUserRole('guest');
-    await camera.startCamera('user', true);
+    await camera.startCamera('user', false);
   };
 
   // When camera stream becomes ready, trigger room creation or join
   useEffect(() => {
     if (camera.status === 'ready' && camera.stream && duo.status === 'idle') {
       if (userRole === 'host') {
-        duo.createRoom(camera.stream);
+        duo.createRoom(camera.stream, undefined, selectedCapacity);
       } else if (userRole === 'guest' && joinInputCode.trim()) {
         duo.joinRoom(joinInputCode.trim(), camera.stream);
       }
     }
-  }, [camera.status, camera.stream, duo.status, userRole, joinInputCode]);
+  }, [camera.status, camera.stream, duo.status, userRole, joinInputCode, selectedCapacity]);
 
   // Copy invitation link to clipboard
   const handleCopyLink = () => {
@@ -321,17 +409,23 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
     });
   };
 
-  // Change frame and sync
+  // Change frame & sync
   const handleSelectFrame = (id: FrameId) => {
     setSelectedFrameId(id);
     duo.sendSyncAction({ type: 'CHANGE_FRAME', frameId: id });
   };
 
-  // Change pose count and sync
+  // Change pose count & sync
   const handleSelectPoseCount = (cnt: number) => {
     setTargetPhotoCount(cnt);
     setCapturedPhotos([]);
     duo.sendSyncAction({ type: 'CHANGE_POSES_COUNT', count: cnt });
+  };
+
+  // Change room capacity (Host only)
+  const handleSelectCapacity = (cap: number) => {
+    setSelectedCapacity(cap);
+    duo.updateMaxPeople(cap);
   };
 
   // Finish session
@@ -348,17 +442,6 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6 select-none">
-      {/* Hidden audio element for remote stream call audio */}
-      <audio
-        ref={(audioEl) => {
-          if (audioEl && duo.remoteStream) {
-            audioEl.srcObject = duo.remoteStream;
-            audioEl.play().catch(() => {});
-          }
-        }}
-        autoPlay
-      />
-
       {/* Screen flash effect */}
       <div
         className={`fixed inset-0 bg-white z-50 pointer-events-none transition-opacity duration-300 ${
@@ -385,14 +468,14 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-xl">👯‍♀️</span>
               <span className="font-handwritten text-3xl font-bold text-[#51465A]">
-                Together Booth
+                Party Booth
               </span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F6DCE5] text-[#8C4D64] font-bold">
-                Online Call ♡
+                Up to {duo.maxPeople} Friends ♡
               </span>
             </div>
             <p className="text-xs text-[#7B6F85] mt-0.5 font-medium">
-              Snap live photos with your friend from anywhere in the world.
+              Snap photobooth poses with your besties live from anywhere in the world!
             </p>
           </div>
         </div>
@@ -402,19 +485,19 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
           {duo.status === 'connected' ? (
             <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-full text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Connected with Friend ♡</span>
+              <span>{duo.totalPeople} of {duo.maxPeople} Friends in Room ♡</span>
             </div>
           ) : duo.status === 'waiting' ? (
             <div className="flex items-center space-x-1.5 bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1 rounded-full text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              <span>Waiting for friend...</span>
+              <span>Waiting for friends... (1/{duo.maxPeople})</span>
             </div>
           ) : null}
 
           {duo.roomId && (
             <button
               onClick={handleCopyLink}
-              title="Copy invite link to share with your friend"
+              title="Copy invite link to share with your friends"
               className="flex items-center space-x-1 bg-pink-50 border border-pink-200 hover:bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs transition-colors font-mono"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -451,21 +534,44 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
               </div>
 
               <h2 className="text-2xl font-hand font-bold text-stone-800 mb-2">
-                Snap Photobooth Pictures Together!
+                Group Photobooth Video Call!
               </h2>
-              <p className="text-stone-500 text-sm max-w-md mx-auto mb-8 leading-relaxed">
-                Connect live with your best friend, partner, or sibling from anywhere in the world. See each other, chat with audio, and snap matching split-screen photobooth strips together in real-time!
+              <p className="text-stone-500 text-sm max-w-md mx-auto mb-6 leading-relaxed">
+                Connect live with 2 to 5 friends from anywhere in the world. See each other live on video, chat, and snap matching group photobooth strips together in real-time!
               </p>
+
+              {/* Room Capacity Selector (Host sets up to 5 people) */}
+              <div className="bg-pink-50/60 p-4 rounded-2xl border border-pink-100 mb-6 text-left">
+                <span className="text-xs font-bold text-pink-700 block mb-2">
+                  👯‍♀️ How many people in your photobooth session?
+                </span>
+                <div className="flex gap-2">
+                  {[2, 3, 4, 5].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setSelectedCapacity(num)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        selectedCapacity === num
+                          ? 'bg-pink-500 border-pink-500 text-white shadow-sm'
+                          : 'bg-white border-pink-200 text-stone-700 hover:bg-pink-100'
+                      }`}
+                    >
+                      {num} People {num === 2 ? '(Duo)' : num === 5 ? '(Squad ♡)' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Host / Create Room Option */}
               <div className="space-y-4">
                 <button
                   onClick={handleHostCreateRoom}
                   disabled={camera.status === 'requesting'}
-                  className="w-full py-4 px-6 bg-gradient-to-r from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 text-white rounded-2xl font-bold shadow-md hover:shadow-lg transition-all transform active:scale-98 flex items-center justify-center space-x-3 text-base"
+                  className="w-full py-4 px-6 bg-gradient-to-r from-pink-400 via-rose-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-2xl font-bold shadow-md hover:shadow-lg transition-all transform active:scale-98 flex items-center justify-center space-x-3 text-base"
                 >
                   <Users className="w-5 h-5" />
-                  <span>Create a Duo Room & Invite Friend</span>
+                  <span>Create {selectedCapacity}-Player Room & Invite Friends</span>
                 </button>
 
                 <div className="flex items-center my-4">
@@ -505,7 +611,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
           </div>
         ) : null}
 
-        {/* WAITING ROOM: Host is waiting for Friend to connect */}
+        {/* WAITING ROOM: Host waiting for Friends */}
         {duo.status === 'waiting' && (
           <div className="w-full max-w-lg my-auto py-8">
             <div className="bg-white rounded-3xl p-8 border border-pink-200 shadow-xl text-center">
@@ -517,7 +623,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                 Your Photobooth Room is Ready!
               </h2>
               <p className="text-stone-500 text-xs mb-6">
-                Send this invite link or room code to your friend to start your video call:
+                Share this link with up to {duo.maxPeople - 1} friends to join your group session:
               </p>
 
               <div className="bg-pink-50/70 p-4 rounded-2xl border border-pink-200 mb-6 flex flex-col items-center">
@@ -567,19 +673,29 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
 
               <div className="flex items-center justify-center space-x-2 text-stone-400 text-xs">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-pink-400" />
-                <span>Waiting for your friend to enter the room...</span>
+                <span>Waiting for friends to join... (1 of {duo.maxPeople})</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* ACTIVE DUO CALL & PHOTOBOOTH */}
+        {/* ACTIVE GROUP CALL & PHOTOBOOTH */}
         {duo.status === 'connected' && (
           <div className="w-full flex flex-col items-center">
-            {/* Viewfinder Split Screen: Side-by-Side Dual Video */}
-            <div className="w-full max-w-4xl bg-stone-900 rounded-3xl p-3 shadow-2xl relative border-4 border-white mb-4 overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 relative rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[16/9] bg-stone-950">
-                {/* Local Video Panel */}
+            {/* Dynamic Viewfinder: Adapts from 2 to 5 People */}
+            <div className="w-full max-w-5xl bg-stone-900 rounded-3xl p-3 shadow-2xl relative border-4 border-white mb-4 overflow-hidden">
+              <div
+                className={`grid gap-2 relative rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[16/9] bg-stone-950 ${
+                  duo.totalPeople === 2
+                    ? 'grid-cols-1 md:grid-cols-2'
+                    : duo.totalPeople === 3
+                    ? 'grid-cols-1 sm:grid-cols-3'
+                    : duo.totalPeople === 4
+                    ? 'grid-cols-2'
+                    : 'grid-cols-2 md:grid-cols-3'
+                }`}
+              >
+                {/* 1. Local Video Panel (You) */}
                 <div className="relative w-full h-full overflow-hidden bg-stone-900 flex items-center justify-center">
                   <video
                     ref={(el) => {
@@ -620,41 +736,51 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                   )}
                 </div>
 
-                {/* Remote Video Panel */}
-                <div className="relative w-full h-full overflow-hidden bg-stone-900 flex items-center justify-center">
-                  <video
-                    ref={(el) => {
-                      duo.remoteVideoRef.current = el;
-                      if (el) {
-                        el.setAttribute('playsinline', 'true');
-                        if (duo.remoteStream && el.srcObject !== duo.remoteStream) {
-                          el.srcObject = duo.remoteStream;
-                          el.play().catch(() => {});
+                {/* 2..N. Connected Remote Friends */}
+                {duo.remotePeers.map((peer, idx) => (
+                  <div
+                    key={peer.peerId}
+                    className="relative w-full h-full overflow-hidden bg-stone-900 flex items-center justify-center"
+                  >
+                    <video
+                      ref={(el) => {
+                        if (el) {
+                          remoteVideosMapRef.current.set(peer.peerId, el);
+                          el.setAttribute('playsinline', 'true');
+                          if (peer.stream && el.srcObject !== peer.stream) {
+                            el.srcObject = peer.stream;
+                            el.play().catch(() => {});
+                          }
+                        } else {
+                          remoteVideosMapRef.current.delete(peer.peerId);
                         }
-                      }
-                    }}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover -scale-x-100"
-                  />
-                  {!duo.remoteStream && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-stone-900/90">
-                      <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center mb-2 animate-pulse">
-                        <Sparkles className="w-5 h-5 text-purple-300" />
-                      </div>
-                      <span className="text-xs font-hand text-purple-200 font-bold mb-0.5">
-                        Connecting to bestie's camera...
-                      </span>
-                      <span className="text-[10px] text-stone-400">
-                        Almost ready to snap together ♡
-                      </span>
+                      }}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover -scale-x-100"
+                    />
+                    <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full flex items-center space-x-1.5 border border-white/20">
+                      <span className="w-2 h-2 rounded-full bg-purple-400" />
+                      <span className="font-medium">{peer.name} ♡</span>
                     </div>
-                  )}
-                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full flex items-center space-x-1.5 border border-white/20">
-                    <span className="w-2 h-2 rounded-full bg-purple-400" />
-                    <span className="font-medium">Bestie ♡</span>
                   </div>
-                </div>
+                ))}
+
+                {/* Extra Slot Placeholder if room has open capacity */}
+                {duo.totalPeople < duo.maxPeople && (
+                  <div
+                    onClick={handleCopyLink}
+                    className="relative w-full h-full border-2 border-dashed border-stone-700 rounded-xl flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-stone-800/50 transition-colors group"
+                  >
+                    <UserPlus className="w-7 h-7 text-pink-400 mb-2 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-hand text-pink-300 font-bold">
+                      {copiedLink ? 'Link Copied!' : '+ Invite Friend'}
+                    </span>
+                    <span className="text-[10px] text-stone-500 font-mono mt-0.5">
+                      ({duo.maxPeople - duo.totalPeople} slot remaining)
+                    </span>
+                  </div>
+                )}
 
                 {/* Big Animated Countdown Overlay */}
                 {currentCountdown !== null && (
@@ -668,9 +794,9 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
             </div>
 
             {/* Bottom Controls Bar */}
-            <div className="w-full max-w-4xl bg-white rounded-3xl p-4 shadow-lg border border-pink-100 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="w-full max-w-5xl bg-white rounded-3xl p-4 shadow-lg border border-pink-100 flex flex-col lg:flex-row items-center justify-between gap-4">
               {/* Photo Count & Timer Settings */}
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-wrap items-center gap-4">
                 {/* Number of Poses Selector */}
                 <div className="flex flex-col">
                   <span className="text-[10px] uppercase font-mono text-stone-400 mb-1">Poses</span>
@@ -710,6 +836,28 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Room Capacity (Host can adjust 2 to 5) */}
+                {duo.isHost && (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-mono text-stone-400 mb-1">Max Friends</span>
+                    <div className="flex bg-stone-100 p-1 rounded-xl">
+                      {[2, 3, 4, 5].map((cap) => (
+                        <button
+                          key={cap}
+                          onClick={() => handleSelectCapacity(cap)}
+                          className={`w-7 h-7 text-xs font-bold rounded-lg transition-all ${
+                            duo.maxPeople === cap
+                              ? 'bg-rose-500 text-white shadow-sm'
+                              : 'text-stone-600 hover:text-stone-900'
+                          }`}
+                        >
+                          {cap}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Shutter Button */}
@@ -717,7 +865,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                 <button
                   onClick={() => triggerCountdownSequence(countdownSeconds, true)}
                   disabled={isCountingDown || capturedPhotos.length >= targetPhotoCount}
-                  className="px-8 py-3.5 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 disabled:opacity-50 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center space-x-2 text-base font-hand"
+                  className="px-8 py-3.5 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 disabled:opacity-50 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center space-x-2 text-base font-hand"
                 >
                   <Camera className="w-5 h-5" />
                   <span>
@@ -748,7 +896,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
             </div>
 
             {/* Captured Photos Preview Tray */}
-            <div className="w-full max-w-4xl mt-6 bg-white/90 backdrop-blur-sm rounded-3xl p-5 border border-pink-100 shadow-md">
+            <div className="w-full max-w-5xl mt-6 bg-white/90 backdrop-blur-sm rounded-3xl p-5 border border-pink-100 shadow-md">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <Sparkles className="w-4 h-4 text-pink-500" />
@@ -798,7 +946,7 @@ export const DuoPhotobooth: React.FC<DuoPhotoboothProps> = ({
                 <div className="mt-5 text-center">
                   <button
                     onClick={handleFinish}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-2xl font-bold shadow-md hover:shadow-lg transition-all transform active:scale-95 inline-flex items-center justify-center space-x-2 text-base font-hand"
+                    className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:to-rose-600 text-white rounded-2xl font-bold shadow-md hover:shadow-lg transition-all transform active:scale-95 inline-flex items-center justify-center space-x-2 text-base font-hand"
                   >
                     <span>Design & Decorate Our Strip ♡</span>
                     <ArrowRight className="w-5 h-5" />

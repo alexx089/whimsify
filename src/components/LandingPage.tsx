@@ -72,7 +72,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             className="px-7 py-4 rounded-full bg-gradient-to-r from-[#FCE7F3] to-[#F3E8FF] hover:from-[#fbcfe8] hover:to-[#e9d5ff] text-[#831843] font-bold text-base sm:text-lg shadow-sm hover:shadow-soft transition-all duration-300 hover:scale-105 border-2 border-[#F472B6]/40 flex items-center gap-2.5"
           >
             <span className="text-xl">👯‍♀️</span>
-            <span>Snap Together (Duo Call)</span>
+            <span>Party Booth (2-5 Friends)</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold">
               Live ♡
             </span>
@@ -457,7 +457,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             
             <div className="lg:col-span-7 space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-bold">
-                <span>👯‍♀️ Online 2-Player Call</span>
+                <span>👯‍♀️ Group Video Call (2 - 5 Friends)</span>
                 <span>•</span>
                 <span>Real-Time WebRTC</span>
               </div>
@@ -467,7 +467,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </h2>
 
               <p className="text-sm sm:text-base text-[#7B6F85] leading-relaxed">
-                Missing your bestie, partner, or sibling in another city? Start a live Together Booth video call with crystal-clear audio, countdown together, and capture dual split-screen photobooth strips in real time!
+                Connect live with up to 5 friends, partners, or siblings across any distance! Start a live Party Booth video call, talk with audio, countdown together, and capture group photobooth strips in real time!
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -475,7 +475,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={() => onNavigate('duo')}
                   className="px-8 py-3.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-bold text-base shadow-md hover:shadow-lg transition-all hover:scale-105 flex items-center gap-2 border border-white"
                 >
-                  <span>Start a Duo Call</span>
+                  <span>Start Group Call (Up to 5)</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <span className="text-xs text-stone-500 font-mono">No sign-up • Instant share link</span>
